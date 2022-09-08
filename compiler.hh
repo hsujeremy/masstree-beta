@@ -15,6 +15,7 @@
  */
 #ifndef MASSTREE_COMPILER_HH
 #define MASSTREE_COMPILER_HH 1
+#include <atomic>
 #include <stdint.h>
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
@@ -78,29 +79,29 @@ inline int ffs_msb(unsigned long long x) {
  * Prevents reordering of loads and stores by the compiler. Not intended to
  * synchronize the processor's caches. */
 inline void fence() {
-    asm volatile("" : : : "memory");
+    std::atomic_thread_fence(std::memory_order::memory_order_acq_rel);
 }
 
 /** @brief Acquire fence. */
 inline void acquire_fence() {
-    asm volatile("" : : : "memory");
+    std::atomic_thread_fence(std::memory_order::memory_order_acquire);
 }
 
 /** @brief Release fence. */
 inline void release_fence() {
-    asm volatile("" : : : "memory");
+    std::atomic_thread_fence(std::memory_order::memory_order_release);
 }
 
 /** @brief Compiler fence that relaxes the processor.
 
     Use this in spinloops, for example. */
 inline void relax_fence() {
-    asm volatile("pause" : : : "memory"); // equivalent to "rep; nop"
+    std::atomic_signal_fence(std::memory_order::memory_order_seq_cst);
 }
 
 /** @brief Full memory fence. */
 inline void memory_fence() {
-    asm volatile("mfence" : : : "memory");
+    std::atomic_thread_fence(std::memory_order::memory_order_seq_cst);
 }
 
 /** @brief Do-nothing function object. */
