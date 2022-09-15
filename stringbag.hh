@@ -47,8 +47,8 @@ class stringbag {
 
  private:
     struct info_type {
-        offset_type pos;
-        offset_type len;
+        std::atomic<offset_type> pos;
+        std::atomic<offset_type> len;
         info_type(unsigned p, unsigned l)
             : pos(p), len(l) {
         }
@@ -102,14 +102,14 @@ class stringbag {
     /** @brief Return the string at position @a p.
         @pre @a p >= 0 && @a p < bag width */
     lcdf::Str operator[](int p) const {
-        info_type info = info_[p];
-        return lcdf::Str(s_ + info.pos, info.len);
+        return lcdf::Str(s_ + info_[p].pos.load(std::memory_order_seq_cst),
+                         info_[p].len.load(std::memory_order_seq_cst));
     }
     /** @brief Return the string at position @a p.
         @pre @a p >= 0 && @a p < bag width */
     lcdf::Str get(int p) const {
-        info_type info = info_[p];
-        return lcdf::Str(s_ + info.pos, info.len);
+        return lcdf::Str(s_ + info_[p].pos.load(std::memory_order_seq_cst),
+                         info_[p].len.load(std::memory_order_seq_cst));
     }
 
     /** @brief Assign the string at position @a p to @a s.
@@ -120,9 +120,9 @@ class stringbag {
            (because the stringbag is out of capacity)
         @pre @a p >= 0 && @a p < bag width */
     bool assign(int p, const char *s, int len) {
-        unsigned pos, mylen = info_[p].len;
+        unsigned pos, mylen = info_[p].len.load(std::memory_order_seq_cst);
         if (mylen >= (unsigned) len)
-            pos = info_[p].pos;
+            pos = info_[p].pos.load(std::memory_order_seq_cst);
         else if (size_ + (unsigned) std::max(len, slice_type::size)
                    <= capacity()) {
             pos = size_;
@@ -130,7 +130,7 @@ class stringbag {
         } else
             return false;
         memcpy(s_ + pos, s, len);
-        info_[p] = info_type(pos, len);
+        new(&info_[p]) info_type(pos, len);
         return true;
     }
     /** @override */
@@ -145,7 +145,11 @@ class stringbag {
         for (int i = 0; i < width; ++i)
             if (info_[i].len)
                 fprintf(f, "%s%*s  #%x %u:%u %.*s\n", prefix, indent, "",
-                        i, info_[i].pos, info_[i].len, std::min(info_[i].len, 40U), s_ + info_[i].pos);
+                        i, info_[i].pos.load(std::memory_order_seq_cst),
+                        info_[i].len.load(std::memory_order_seq_cst),
+                        std::min(info_[i].len.load(std::memory_order_seq_cst),
+                                 40U),
+                        s_ + info_[i].pos.load(std::memory_order_seq_cst));
     }
 
   private:
