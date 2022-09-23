@@ -12,11 +12,11 @@
 static int count1 = 0;
 static int count2 = 0;
 
-void fill_bag1(stringbag<uint16_t>* sb) {
-    printf("Calling from thread 1 %p\n", &sb);
+void fill_bag1(stringbag<uint16_t>* sbptr) {
+    printf("Calling from thread 1 %p\n", &sbptr);
     for (int i = 1; i < WIDTH; i += 2) {
-        if (!sb->filled(i)) {
-            if (!sb->assign(i, lcdf::Str("aaa"))) {
+        if (!sbptr->filled(i)) {
+            if (!sbptr->assign(i, lcdf::Str("aaa"))) {
                 break;
             }
             ++count1;
@@ -25,11 +25,11 @@ void fill_bag1(stringbag<uint16_t>* sb) {
     printf("count1: %d\n", count1);
 }
 
-void fill_bag2(stringbag<uint16_t>* sb) {
-    printf("Calling from thread 2 %p\n", &sb);
+void fill_bag2(stringbag<uint16_t>* sbptr) {
+    printf("Calling from thread 2 %p\n", &sbptr);
     for (int i = 0; i < WIDTH; i += 2) {
-        if (!sb->filled(i)) {
-            if (!sb->assign(i, lcdf::Str("bbb"))) {
+        if (!sbptr->filled(i)) {
+            if (!sbptr->assign(i, lcdf::Str("bbb"))) {
                 break;
             }
             ++count2;
