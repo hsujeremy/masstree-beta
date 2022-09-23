@@ -5,6 +5,12 @@ This is the source release for Masstree, a fast, multi-core key-value
 store. This document describes how to run Masstree and interpret its
 results.
 
+**Note**: I'm currently working on refactoring Masstree to use synchronization
+primitives from the C++ standard library wherever possible, with the end goal
+being to make the system portable to all major platforms. I have an unmodified
+version of the `master` branch with a Docker file for a Linux image on the
+branch `jeremy-main` and my working changes are on the branch `jeremy-stdlib`.
+
 ## Contents
 
 * `MTDIR`: this directory
