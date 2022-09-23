@@ -138,17 +138,23 @@ class stringbag {
         return assign(p, s.s, s.len);
     }
 
+    bool filled(int p) {
+        return (offset_type) info_[p].len.load(std::memory_order_seq_cst) > 0;
+    }
+
     /** @brief Print a representation of the stringbag to @a f. */
     void print(int width, FILE *f, const char *prefix, int indent) {
-        fprintf(f, "%s%*s%p (%d:)%d:%d...\n", prefix, indent, "",
+        fprintf(f, "%s%*s%p (%d:)%d:%ld...\n", prefix, indent, "",
                 this, (int) overhead(width), size_, capacity());
         for (int i = 0; i < width; ++i)
-            if (info_[i].len)
+            if (filled(i))
                 fprintf(f, "%s%*s  #%x %u:%u %.*s\n", prefix, indent, "",
                         i, info_[i].pos.load(std::memory_order_seq_cst),
                         info_[i].len.load(std::memory_order_seq_cst),
-                        std::min(info_[i].len.load(std::memory_order_seq_cst),
-                                 40U),
+                        std::min(
+                            (unsigned) info_[i].len.load(std::memory_order_seq_cst),
+                            40U
+                        ),
                         s_ + info_[i].pos.load(std::memory_order_seq_cst));
     }
 
