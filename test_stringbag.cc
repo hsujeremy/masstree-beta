@@ -3,30 +3,23 @@
 #include <thread>
 #include "stringbag.hh"
 
-// Create an empty stringbag structure
-// Have two threads concurrently write to stringbag until it's full
-// Once it's full, spin up a third thread and check results
-
 #define WIDTH 15
 
 static int count1 = 0;
 static int count2 = 0;
 
 void fill_bag1(stringbag<uint16_t>* sbptr) {
-    printf("Calling from thread 1 %p\n", &sbptr);
     for (int i = 1; i < WIDTH; i += 2) {
         if (!sbptr->filled(i)) {
-            if (!sbptr->assign(i, lcdf::Str("aaa"))) {
+            if (!sbptr->assign(i, lcdf::Str("aaa", 3))) {
                 break;
             }
             ++count1;
         }
     }
-    printf("count1: %d\n", count1);
 }
 
 void fill_bag2(stringbag<uint16_t>* sbptr) {
-    printf("Calling from thread 2 %p\n", &sbptr);
     for (int i = 0; i < WIDTH; i += 2) {
         if (!sbptr->filled(i)) {
             if (!sbptr->assign(i, lcdf::Str("bbb"))) {
@@ -35,11 +28,20 @@ void fill_bag2(stringbag<uint16_t>* sbptr) {
             ++count2;
         }
     }
-    printf("count2: %d\n", count2);
 }
 
-void f3() {
-    printf("Calling from thread 3\n");
+void check_results(stringbag<uint16_t>* sbptr) {
+    printf("Checking results\n");
+    assert(count1 + count2 == WIDTH);
+    int local_count1 = 0;
+    int local_count2 = 0;
+    lcdf::Str str = (*sbptr)[0];
+    for (int i = 0; i < WIDTH; ++i) {
+        local_count1 += !strncmp("aaa", (*sbptr)[i].s, 3);
+        local_count2 += !strncmp("bbb", (*sbptr)[i].s, 3);
+    }
+    assert(local_count1 + local_count2 == WIDTH);
+    assert(local_count1 == count1 && local_count2 == count2);
 }
 
 int main() {
@@ -63,7 +65,7 @@ int main() {
     sbptr->print(WIDTH, stdout, "", 0);
 
     // Spin off third thread to check stringbag contents
-    std::thread thread3(f3);
+    std::thread thread3(check_results, std::ref(sbptr));
     thread3.join();
-    printf("Finished running threads\n");
+    printf("All checks passed!\n");
 }
