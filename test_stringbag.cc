@@ -9,6 +9,7 @@ static int count1 = 0;
 static int count2 = 0;
 
 void fill_bag1(stringbag<uint16_t>* sbptr) {
+    printf("Thread 1 filling stringbag...\n");
     for (int i = 1; i < WIDTH; i += 2) {
         if (!sbptr->filled(i)) {
             if (!sbptr->assign(i, lcdf::Str("aaa", 3))) {
@@ -20,6 +21,7 @@ void fill_bag1(stringbag<uint16_t>* sbptr) {
 }
 
 void fill_bag2(stringbag<uint16_t>* sbptr) {
+    printf("Thread 2 filling stringbag...\n");
     for (int i = 0; i < WIDTH; i += 2) {
         if (!sbptr->filled(i)) {
             if (!sbptr->assign(i, lcdf::Str("bbb"))) {
@@ -53,7 +55,7 @@ int main() {
     new((void*) sbptr) stringbag<uint16_t>(WIDTH, safe_sz);
 
     // Spin off two threads to fill stringbag
-    printf("Passing to thread: %p\n", sbptr);
+    printf("Creating two threads to fill stringbag...\n");
     std::thread thread1(fill_bag1, std::ref(sbptr));
     std::thread thread2(fill_bag2, std::ref(sbptr));
 
