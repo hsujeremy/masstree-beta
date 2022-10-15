@@ -1,7 +1,7 @@
 #! /bin/bash
 
 maindir=""
-destdir=cs61-psets
+destdir=masstree
 
 fresh=
 verbose=false
@@ -20,7 +20,7 @@ while test "$#" -ne 0; do
             platform=linux/arm64
             shift
         else
-            echo "\`cs61-run-docker --arm\` only works on ARM64 hosts" 1>&2
+            echo "\`run-docker --arm\` only works on ARM64 hosts" 1>&2
             exit 1
         fi
     elif test "$1" = "-x" -o "$1" = "--x86-64" -o "$1" = "--x86_64" -o "$1" = "--amd64"; then
@@ -31,7 +31,7 @@ while test "$#" -ne 0; do
         if test "$arch" = "arm64" -o "$arch" = "aarch64"; then
             armtext=" [-a|--arm] [-x|--x86-64]"
         fi
-        echo "Usage: cs61-run-docker [-f|--fresh]$armtext [-V|--verbose]" 1>&2
+        echo "Usage: run-docker [-f|--fresh]$armtext [-V|--verbose]" 1>&2
         exit 1
     fi
 done
@@ -41,9 +41,9 @@ elif test -z "$platform"; then
     platform=linux/amd64
 fi
 if test -z "$tag" -a "$platform" = linux/arm64; then
-    tag=cs61:arm64
+    tag=masstree:arm64
 elif test -z "$tag"; then
-    tag=cs61:latest
+    tag=masstree:latest
 fi
 
 
@@ -64,7 +64,7 @@ myfileid=`stat $statformatarg %d:%i "${BASH_SOURCE[0]}" 2>/dev/null`
 dir="`pwd`"
 subdir=""
 while test "$dir" != / -a "$dir" != ""; do
-    thisfileid=`stat $statformatarg %d:%i "$dir"/cs61-run-docker 2>/dev/null`
+    thisfileid=`stat $statformatarg %d:%i "$dir"/run-docker 2>/dev/null`
     if test -n "$thisfileid" -a "$thisfileid" = "$myfileid"; then
         maindir="$dir"
         break
@@ -92,7 +92,7 @@ if test -n "$maindir" -a -z "$fresh"; then
         image="`echo $existing_image | sed 's/^.*,//'`"
         image12="`echo $image | head -c 12`"
         echo "* Using running container $image12, created $created_at" 1>&2
-        echo "- To start a new container, exit then \`cs61-run-docker -f\`" 1>&2
+        echo "- To start a new container, exit then \`run-docker -f\`" 1>&2
         echo "- To kill this container, exit then \`docker kill $image12\`" 1>&2
         vexec docker exec -it$sshenvarg $image /bin/bash
     fi
@@ -116,7 +116,7 @@ elif test -x /bin/netstat; then
 fi
 
 if test -n "$maindir"; then
-    vexec docker run -it --platform $platform --rm --privileged --cap-add=SYS_PTRACE --cap-add=NET_ADMIN --security-opt seccomp=unconfined -v "$maindir":/home/cs61-user/$destdir$ssharg -w "/home/cs61-user/$destdir$subdir" $netarg$sshenvarg $tag
+    vexec docker run -it --platform $platform --rm --privileged --cap-add=SYS_PTRACE --cap-add=NET_ADMIN --security-opt seccomp=unconfined -v "$maindir":/home/masstree-user/$destdir$ssharg -w "/home/masstree-user/$destdir$subdir" $netarg$sshenvarg $tag
 else
     vexec docker run -it --platform $platform --rm --privileged --cap-add=SYS_PTRACE --cap-add=NET_ADMIN --security-opt seccomp=unconfined $netarg$sshenvarg $tag
 fi
