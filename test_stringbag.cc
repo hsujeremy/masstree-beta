@@ -1,73 +1,136 @@
+#include <algorithm>
 #include <assert.h>
+#include <deque>
 #include <iostream>
+#include <queue>
+#include <random>
+#include <stdlib.h>
+#include <time.h>
 #include <thread>
+#include <unistd.h>
+#include <unordered_map>
+#include <unordered_set>
 #include "stringbag.hh"
 
 #define WIDTH 15
+#define TRIALS 1000
+// TODO: Add verbose flag
 
-static int count1 = 0;
-static int count2 = 0;
+std::atomic<bool> finished_writing = {false}; // better than fill?
 
-void fill_bag1(stringbag<uint16_t>* sbptr) {
-    printf("Thread 1 filling stringbag...\n");
-    for (int i = 1; i < WIDTH; i += 2) {
-        if (!sbptr->filled(i)) {
-            if (!sbptr->assign(i, lcdf::Str("aaa", 3))) {
-                break;
-            }
-            ++count1;
-        }
-    }
-}
+static lcdf::Str strings[10] = {
+    lcdf::Str("aaa", 3), lcdf::Str("bbb", 3), lcdf::Str("ccc", 3),
+    lcdf::Str("adabc", 5), lcdf::Str("make", 4), lcdf::Str("items", 5),
+    lcdf::Str("tree", 4), lcdf::Str("cs161", 5), lcdf::Str("cs165", 5),
+    lcdf::Str("lgtm", 4)
+};
 
-void fill_bag2(stringbag<uint16_t>* sbptr) {
-    printf("Thread 2 filling stringbag...\n");
-    for (int i = 0; i < WIDTH; i += 2) {
-        if (!sbptr->filled(i)) {
-            if (!sbptr->assign(i, lcdf::Str("bbb"))) {
-                break;
-            }
-            ++count2;
-        }
-    }
-}
+// -----------------------------------------------------------------------------
+// New tests for MRSW concurrency
 
-void check_results(stringbag<uint16_t>* sbptr) {
-    printf("Checking results\n");
-    assert(count1 + count2 == WIDTH);
-    int local_count1 = 0;
-    int local_count2 = 0;
-    lcdf::Str str = (*sbptr)[0];
+void seqwriter(stringbag<uint16_t>* sbptr) {
     for (int i = 0; i < WIDTH; ++i) {
-        local_count1 += !strncmp("aaa", (*sbptr)[i].s, 3);
-        local_count2 += !strncmp("bbb", (*sbptr)[i].s, 3);
+        usleep(rand() % 1001);
+        int si = rand() % 10;
+        lcdf::Str s = strings[si];
+        // printf("writing %d %s to %d\n", si, s.s, i);
+        bool r = sbptr->assign(i, s);
+        if (!r) return;
     }
-    assert(local_count1 + local_count2 == WIDTH);
-    assert(local_count1 == count1 && local_count2 == count2);
+    finished_writing.store(true, std::memory_order_seq_cst);
+}
+
+void randwriter(stringbag<uint16_t>* sbptr, std::default_random_engine* re) {
+    std::deque<int> ordered_slots;
+    for (int i = 0; i < WIDTH; ++i) {
+        ordered_slots.push_back(i);
+    }
+    std::shuffle(ordered_slots.begin(), ordered_slots.end(), *re);
+    std::queue<int> open_slots(ordered_slots);
+    // printf("start\n");
+    while (!open_slots.empty()) {
+        // usleep(rand() % 1001);
+        int p = open_slots.front();
+        int si = rand() % 10;
+        lcdf::Str s = strings[si];
+        // printf("inserting %d %.*s\n", p, s.len, s.s);
+        int r = sbptr->assign(p, s);
+        if (!r) break;
+        open_slots.pop();
+    }
+    // printf("storing\n");
+    finished_writing.store(true, std::memory_order_seq_cst);
+    // printf("end\n");
+}
+
+void reader(stringbag<uint16_t>* sbptr) {
+    std::unordered_map<int, lcdf::Str> seen;
+    int iter = 0;
+    // while (true) {
+    while (!finished_writing.load(std::memory_order_seq_cst)) {
+        ++iter;
+        for (int i = 0; i < WIDTH; ++i) {
+            bool r = sbptr->filled(i);
+            if (r) {
+                // const char* s = (*sbptr)[i].s;
+                lcdf::Str item = (*sbptr)[i];
+                if (seen.find(i) == seen.end()) {
+                    // printf("read inserting %.*s\n", item.len, item.s);
+                    seen.insert({i, item});
+                } else {
+                    lcdf::Str expected = seen[i];
+                    // if (strncmp(item.s, expected.s, item.len)) {
+                    //     printf("%d\n", item.len);
+                    //     printf("Got %.*s but expected %s\n", item.len, item.s,
+                    //            expected.s);
+                    //     assert(false);
+                    // }
+                    assert(!strncmp(item.s, expected.s, item.len));
+                }
+            }
+        }
+    }
+    // printf("loops: %d\n", iter);
 }
 
 int main() {
-    // Construct a stringbag object with space for `WIDTH` characters
-    size_t safe_sz = stringbag<uint16_t>::safe_size(WIDTH, 64);
-    printf("safe size: %zu, max size: %u\n", safe_sz,
-           stringbag<uint16_t>::max_size());
-    stringbag<uint16_t>* sbptr = (stringbag<uint16_t>*) malloc(safe_sz);
-    new((void*) sbptr) stringbag<uint16_t>(WIDTH, safe_sz);
+    printf("Starting stringbag concurrency tests...\n");
+    for (int i = 0; i < TRIALS; ++i) {
+        size_t safe_sz = stringbag<uint16_t>::safe_size(WIDTH, 64);
+        stringbag<uint16_t>* sbptr = (stringbag<uint16_t>*) malloc(safe_sz);
+        new((void*) sbptr) stringbag<uint16_t>(WIDTH, safe_sz);
 
-    // Spin off two threads to fill stringbag
-    printf("Creating two threads to fill stringbag...\n");
-    std::thread thread1(fill_bag1, std::ref(sbptr));
-    std::thread thread2(fill_bag2, std::ref(sbptr));
+        srand(time(0));
+        finished_writing.store(false, std::memory_order_seq_cst);
+        std::thread t1(seqwriter, std::ref(sbptr));
+        std::thread t2(reader, std::ref(sbptr));
+        std::thread t3(reader, std::ref(sbptr));
+        t1.join();
+        t2.join();
+        t3.join();
 
-    // Join once stringbag is full
-    thread1.join();
-    thread2.join();
+        free(sbptr);
+    }
+    printf("MRSW with sequential position writes passed!\n");
 
-    printf("count1: %d, count2: %d\n", count1, count2);
-    sbptr->print(WIDTH, stdout, "", 0);
+    auto re = std::default_random_engine(time(0));
+    for (int i = 0; i < TRIALS; ++i) {
+        size_t safe_sz = stringbag<uint16_t>::safe_size(WIDTH, 64);
+        stringbag<uint16_t>* sbptr = (stringbag<uint16_t>*) malloc(safe_sz);
+        new((void*) sbptr) stringbag<uint16_t>(WIDTH, safe_sz);
 
-    // Spin off third thread to check stringbag contents
-    std::thread thread3(check_results, std::ref(sbptr));
-    thread3.join();
+        srand(time(0));
+        finished_writing.store(false, std::memory_order_seq_cst);
+        std::thread t1(randwriter, std::ref(sbptr), &re);
+        std::thread t2(reader, std::ref(sbptr));
+        std::thread t3(reader, std::ref(sbptr));
+        t1.join();
+        t2.join();
+        t3.join();
+
+        free(sbptr);
+    }
+    printf("MRSW with random position writes passed!\n");
     printf("All checks passed!\n");
+    return 0;
 }
