@@ -138,6 +138,7 @@ class stringbag {
         return assign(p, s.s, s.len);
     }
 
+    /** @brief Return true if the element at position p is filled. **/
     bool filled(int p) {
         return (offset_type) info_[p].len.load(std::memory_order_seq_cst) > 0;
     }
