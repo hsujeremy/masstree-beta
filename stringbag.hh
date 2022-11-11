@@ -85,18 +85,18 @@ class stringbag {
     stringbag(int width, size_t capacity) {
         size_t firstpos = overhead(width);
         assert(capacity >= firstpos && capacity <= max_size());
-        size_ = firstpos;
-        capacity_ = capacity - 1;
+        size_.store(firstpos, std::memory_order_seq_cst);
+        capacity_.store(capacity - 1, std::memory_order_seq_cst);
         memset(info_, 0, sizeof(info_type) * width);
     }
 
     /** @brief Return the capacity used to construct this bag. */
     size_t capacity() const {
-        return capacity_ + 1;
+        return capacity_.load(std::memory_order_seq_cst) + 1;
     }
     /** @brief Return the number of bytes used so far (including overhead). */
     size_t used_capacity() const {
-        return size_;
+        return size_.load(std::memory_order_seq_cst);
     }
 
     /** @brief Return the string at position @a p.
@@ -123,10 +123,10 @@ class stringbag {
         unsigned pos, mylen = info_[p].len.load(std::memory_order_seq_cst);
         if (mylen >= (unsigned) len)
             pos = info_[p].pos.load(std::memory_order_seq_cst);
-        else if (size_ + (unsigned) std::max(len, slice_type::size)
-                   <= capacity()) {
-            pos = size_;
-            size_ += len;
+        else if (size_.load(std::memory_order_seq_cst)
+                 + (unsigned) std::max(len, slice_type::size) <= capacity()) {
+            pos = size_.load(std::memory_order_seq_cst);
+            size_.store(len + size_.load(std::memory_order_seq_cst), std::memory_order_seq_cst);
         } else
             return false;
         memcpy(s_ + pos, s, len);
@@ -146,7 +146,8 @@ class stringbag {
     /** @brief Print a representation of the stringbag to @a f. */
     void print(int width, FILE *f, const char *prefix, int indent) {
         fprintf(f, "%s%*s%p (%d:)%d:%ld...\n", prefix, indent, "",
-                this, (int) overhead(width), size_, capacity());
+                this, (int) overhead(width),
+                size_.load(std::memory_order_seq_cst), capacity());
         for (int i = 0; i < width; ++i)
             if (filled(i))
                 fprintf(f, "%s%*s  #%x %u:%u %.*s\n", prefix, indent, "",
@@ -162,8 +163,8 @@ class stringbag {
   private:
     union {
         struct {
-            offset_type size_;
-            offset_type capacity_;
+            std::atomic<offset_type> size_;
+            std::atomic<offset_type> capacity_;
             info_type info_[0];
         };
         char s_[0];
