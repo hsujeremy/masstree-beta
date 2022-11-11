@@ -14,7 +14,7 @@
 
 #define WIDTH 15
 #define TRIALS 1000
-// TODO: Add verbose flag
+#define VERBOSE 0
 
 std::atomic<bool> finished_writing = {false}; // better than fill?
 
@@ -33,9 +33,9 @@ void seqwriter(stringbag<uint16_t>* sbptr) {
         usleep(rand() % 1001);
         int si = rand() % 10;
         lcdf::Str s = strings[si];
-        // printf("writing %d %s to %d\n", si, s.s, i);
-        bool r = sbptr->assign(i, s);
-        if (!r) return;
+        if (!sbptr->assign(i, s)) {
+            return;
+        }
     }
     finished_writing.store(true, std::memory_order_seq_cst);
 }
@@ -47,50 +47,51 @@ void randwriter(stringbag<uint16_t>* sbptr, std::default_random_engine* re) {
     }
     std::shuffle(ordered_slots.begin(), ordered_slots.end(), *re);
     std::queue<int> open_slots(ordered_slots);
-    // printf("start\n");
     while (!open_slots.empty()) {
         // usleep(rand() % 1001);
         int p = open_slots.front();
         int si = rand() % 10;
         lcdf::Str s = strings[si];
-        // printf("inserting %d %.*s\n", p, s.len, s.s);
-        int r = sbptr->assign(p, s);
-        if (!r) break;
+        if (VERBOSE) {
+            printf("inserting %d %.*s\n", p, s.len, s.s);
+        }
+        if (!sbptr->assign(p, s)) {
+            break;
+        }
         open_slots.pop();
     }
-    // printf("storing\n");
     finished_writing.store(true, std::memory_order_seq_cst);
-    // printf("end\n");
 }
 
 void reader(stringbag<uint16_t>* sbptr) {
     std::unordered_map<int, lcdf::Str> seen;
-    int iter = 0;
-    // while (true) {
+    size_t iter = 0;
     while (!finished_writing.load(std::memory_order_seq_cst)) {
         ++iter;
         for (int i = 0; i < WIDTH; ++i) {
             bool r = sbptr->filled(i);
             if (r) {
-                // const char* s = (*sbptr)[i].s;
                 lcdf::Str item = (*sbptr)[i];
                 if (seen.find(i) == seen.end()) {
-                    // printf("read inserting %.*s\n", item.len, item.s);
+                    if (VERBOSE) {
+                        printf("read inserting %.*s\n", item.len, item.s);
+                    }
                     seen.insert({i, item});
                 } else {
                     lcdf::Str expected = seen[i];
-                    // if (strncmp(item.s, expected.s, item.len)) {
-                    //     printf("%d\n", item.len);
-                    //     printf("Got %.*s but expected %s\n", item.len, item.s,
-                    //            expected.s);
-                    //     assert(false);
-                    // }
+                    if (VERBOSE && strncmp(item.s, expected.s, item.len)) {
+                        printf("Got %.*s but expected %s\n", item.len, item.s,
+                               expected.s);
+                        assert(false);
+                    }
                     assert(!strncmp(item.s, expected.s, item.len));
                 }
             }
         }
     }
-    // printf("loops: %d\n", iter);
+    if (VERBOSE) {
+        printf("looped %zu times before filled\n", iter);
+    }
 }
 
 int main() {
