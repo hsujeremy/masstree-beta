@@ -9,7 +9,7 @@ results.
 primitives from the C++ standard library wherever possible, with the end goal
 being to make the system portable to all major platforms. I have an unmodified
 version of the `master` branch with a Docker file for a Linux image on the
-branch `jeremy-main` and my working changes are on the branch `jeremy-stdlib`.
+branch `jeremy-main` and my working changes are on the branch `jeremy-standard`.
 
 ## Contents
 
