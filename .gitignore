@@ -24,6 +24,7 @@ stamp-h
 /test_binsearch
 /test_string
 /test_stringbag
+/test_nodeversion
 bench/GNUmakefile
 bench/client
 bench/load/YCSB
