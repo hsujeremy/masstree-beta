@@ -10,6 +10,9 @@
 #define TRIALS 1000
 #define THREADS 5
 
+// TODO: root, deleted, has_changed tests
+// TODO: extend to test 32-bit version
+
 struct test_type : public Masstree::nodeparams<15, 15> {
     typedef uint64_t value_type;
     typedef ::threadinfo threadinfo_type;
@@ -56,6 +59,18 @@ void thread_mark_split(test_nodeversion* v) {
         assert(v->splitting() == expect_set);
     };
     thread_mark_generic(v, setfn, checkfn);
+}
+
+void thread_mark_root_nonroot(test_nodeversion* v) {
+    if (!v->try_lock()) {
+        return;
+    }
+    assert(!v->is_root());
+    v->mark_root();
+    assert(v->is_root());
+    v->mark_nonroot();
+    assert(!v->is_root());
+    v->unlock();
 }
 
 int main() {
@@ -106,6 +121,16 @@ int main() {
         }
     }
     printf("Concurrent mark/clear split bit test passed!\n");
+
+    for (int i = 0; i < TRIALS; ++i) {
+        for (int j = 0; j < THREADS; ++j) {
+            threads[j] = std::thread(thread_mark_root_nonroot, &v);
+        }
+        for (int j = 0; j < THREADS; ++j) {
+            threads[j].join();
+        }
+    }
+    printf("Concurrent mark root/nonroot test passed!\n");
 
     printf("All tests passed!\n");
 }
