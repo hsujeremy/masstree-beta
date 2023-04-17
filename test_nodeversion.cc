@@ -47,6 +47,16 @@ void thread_mark_insert(test_nodeversion* v) {
     thread_mark_generic(v, setfn, checkfn);
 }
 
+void thread_mark_split(test_nodeversion* v) {
+    auto setfn = [](test_nodeversion* v) { 
+        v->mark_split(); 
+    };
+    auto checkfn = [](test_nodeversion* v, bool expect_set) {
+        assert(v->splitting() == expect_set);
+    };
+    thread_mark_generic(v, setfn, checkfn);
+}
+
 int main() {
     printf("Starting internal nodeversion concurrency tests...\n");
     test_nodeversion v(false);
@@ -89,6 +99,22 @@ int main() {
         t5.join();
     }
     printf("Concurrent mark/clear insert bit test passed!\n");
+
+    // Test: multiple threads shouldn't be able to set/clear splitting bit
+    // concurrently
+    for (int i = 0; i < TRIALS; ++i) {
+        std::thread t1(thread_mark_split, &v);  
+        std::thread t2(thread_mark_split, &v);
+        std::thread t3(thread_mark_split, &v);
+        std::thread t4(thread_mark_split, &v);
+        std::thread t5(thread_mark_split, &v);
+        t1.join();
+        t2.join();
+        t3.join();
+        t4.join();
+        t5.join();
+    }
+    printf("Concurrent mark/clear split bit test passed!\n");
 
     printf("All tests passed!\n");
 }
