@@ -122,6 +122,8 @@ int main() {
     }
     printf("Concurrent mark/clear split bit test passed!\n");
 
+    // Test: multiple threads shouldn't be able to mark the node as root or
+    // nonroot concurrently
     for (int i = 0; i < TRIALS; ++i) {
         for (int j = 0; j < THREADS; ++j) {
             threads[j] = std::thread(thread_mark_root_nonroot, &v);
