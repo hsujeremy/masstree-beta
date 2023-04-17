@@ -8,6 +8,7 @@
 #include "nodeversion.hh"
 
 #define TRIALS 1000
+#define THREADS 5
 
 struct test_type : public Masstree::nodeparams<15, 15> {
     typedef uint64_t value_type;
@@ -68,51 +69,41 @@ int main() {
     v.unlock();
     printf("Single thread lock/unlock test passed!\n");
 
+    std::thread threads[THREADS];
+
     // Test: multiple threads should not be able to obtain the lock concurrently
     srand(time(0));
-    for (int i = 0; i < TRIALS; ++i) {    
-        std::thread t1(thread_try_lock, &v);
-        std::thread t2(thread_try_lock, &v);
-        std::thread t3(thread_try_lock, &v);
-        std::thread t4(thread_try_lock, &v);
-        std::thread t5(thread_try_lock, &v);
-        t1.join();
-        t2.join();
-        t3.join();
-        t4.join();
-        t5.join();
+    for (int i = 0; i < TRIALS; ++i) {   
+        for (int j = 0; j < THREADS; ++j) {
+            threads[j] = std::thread(thread_try_lock, &v);
+        }
+        for (int j = 0; j < THREADS; ++j) {
+            threads[j].join();
+        }
     }
     printf("Concurrent locking/unlocking test passed!\n");
 
     // Test: multiple threads shouldn't be able to set/clear inserting bit
     // concurrently
     for (int i = 0; i < TRIALS; ++i) {
-        std::thread t1(thread_mark_insert, &v);  
-        std::thread t2(thread_mark_insert, &v);
-        std::thread t3(thread_mark_insert, &v);
-        std::thread t4(thread_mark_insert, &v);
-        std::thread t5(thread_mark_insert, &v);
-        t1.join();
-        t2.join();
-        t3.join();
-        t4.join();
-        t5.join();
+        for (int j = 0; j < THREADS; ++j) {
+            threads[j] = std::thread(thread_mark_insert, &v);
+        }
+        for (int j = 0; j < THREADS; ++j) {
+            threads[j].join();
+        }
     }
     printf("Concurrent mark/clear insert bit test passed!\n");
 
     // Test: multiple threads shouldn't be able to set/clear splitting bit
     // concurrently
     for (int i = 0; i < TRIALS; ++i) {
-        std::thread t1(thread_mark_split, &v);  
-        std::thread t2(thread_mark_split, &v);
-        std::thread t3(thread_mark_split, &v);
-        std::thread t4(thread_mark_split, &v);
-        std::thread t5(thread_mark_split, &v);
-        t1.join();
-        t2.join();
-        t3.join();
-        t4.join();
-        t5.join();
+        for (int j = 0; j < THREADS; ++j) {
+            threads[j] = std::thread(thread_mark_split, &v);
+        }
+        for (int j = 0; j < THREADS; ++j) {
+            threads[j].join();
+        }
     }
     printf("Concurrent mark/clear split bit test passed!\n");
 
