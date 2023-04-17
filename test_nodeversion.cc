@@ -9,7 +9,9 @@ struct test_type : public Masstree::nodeparams<15, 15> {
     typedef ::threadinfo threadinfo_type;
 };
 
-void thread_try_lock(Masstree::node_base<test_type>::nodeversion_type *v) {
+typedef Masstree::node_base<test_type>::nodeversion_type test_nodeversion;
+
+void thread_try_lock(test_nodeversion* v) {
     if (v->try_lock()) {
         v->unlock();
     }
@@ -18,7 +20,7 @@ void thread_try_lock(Masstree::node_base<test_type>::nodeversion_type *v) {
 int main() {
     printf("Starting nodeversion concurrency tests\n");
 
-    Masstree::node_base<test_type>::nodeversion_type v(false);
+    test_nodeversion v(false);
     // printf("v_ is %u\n", v.version_value());
 
     printf("Test: single-threaded lock/unlock... ");
