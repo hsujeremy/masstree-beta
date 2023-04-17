@@ -23,17 +23,28 @@ void thread_try_lock(test_nodeversion* v) {
     }
 }
 
-void thread_mark_insert(test_nodeversion* v) {
+void thread_mark_generic(test_nodeversion* v, void (*setfn)(test_nodeversion*), 
+                         void (*checkfn)(test_nodeversion*, bool)) {
     if (!v->try_lock()) {
         return;
     }
-    assert(!v->inserting());
+    checkfn(v, false);
     test_nodeversion initv = *v;
-    v->mark_insert();
-    assert(v->inserting());
+    setfn(v);
+    checkfn(v, true);
     v->assign_version(initv);
-    assert(!v->inserting());
+    checkfn(v, false);
     v->unlock();
+}
+
+void thread_mark_insert(test_nodeversion* v) {
+    auto setfn = [](test_nodeversion* v) { 
+        v->mark_insert(); 
+    };
+    auto checkfn = [](test_nodeversion* v, bool expect_set) {
+        assert(v->inserting() == expect_set);
+    };
+    thread_mark_generic(v, setfn, checkfn);
 }
 
 int main() {
